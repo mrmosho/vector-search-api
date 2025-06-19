@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vector Search Index Building Progress</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        .progress-container {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 15px 0;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe 0%, #00f2fe 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shine 2s infinite;
+        }
+        @keyframes shine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        .progress-text {
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: 600;
+            margin: 10px 0;
+        }
+        .status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+        .stage {
+            font-size: 1.1em;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+        .message {
+            font-size: 1em;
+            opacity: 0.9;
+            margin: 10px 0;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #4facfe;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        .controls {
+            text-align: center;
+            margin: 30px 0;
+        }
+        button {
+            background: linear-gradient(45deg, #4facfe, #00f2fe);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.3);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(79, 172, 254, 0.4);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .error {
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid rgba(255, 0, 0, 0.5);
+            color: #ffcccc;
+        }
+        .success {
+            background: rgba(0, 255, 0, 0.2);
+            border: 1px solid rgba(0, 255, 0, 0.5);
+            color: #ccffcc;
+        }
+        .log {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 20px 0;
+        }
+        .timestamp {
+            opacity: 0.7;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Vector Search Index Progress</h1>
+        
+        <div class="progress-container">
+            <div class="progress-text" id="progressText">Connecting...</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="status">
+                <div class="stage" id="stageText">Initializing</div>
+                <div class="timestamp" id="timestamp">--:--:--</div>
+            </div>
+            <div class="message" id="messageText">Connecting to server...</div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value" id="currentItems">-</div>
+                <div class="stat-label">Current Items</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalItems">-</div>
+                <div class="stat-label">Total Items</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="progressPercent">0%</div>
+                <div class="stat-label">Progress</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button onclick="startMonitoring()" id="startBtn">Start Monitoring</button>
+            <button onclick="stopMonitoring()" id="stopBtn" disabled>Stop Monitoring</button>
+            <button onclick="checkHealth()" id="healthBtn">Check Health</button>
+            <button onclick="rebuildIndex()" id="rebuildBtn">Rebuild Index</button>
+        </div>
+
+        <div class="log" id="logContainer"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://127.0.0.1:8000'; // Updated to match your server exactly
+        let monitoring = false;
+        let eventSource = null;
+
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+            if (type === 'error') logEntry.style.color = '#ffcccc';
+            if (type === 'success') logEntry.style.color = '#ccffcc';
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateProgress(data) {
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            const stageText = document.getElementById('stageText');
+            const messageText = document.getElementById('messageText');
+            const timestamp = document.getElementById('timestamp');
+            const currentItems = document.getElementById('currentItems');
+            const totalItems = document.getElementById('totalItems');
+            const progressPercent = document.getElementById('progressPercent');
+
+            const progress = Math.round(data.progress * 100);
+            
+            progressFill.style.width = `${progress}%`;
+            progressText.textContent = `${progress}%`;
+            stageText.textContent = data.stage.replace('_', ' ');
+            messageText.textContent = data.message;
+            progressPercent.textContent = `${progress}%`;
+            
+            if (data.current) currentItems.textContent = data.current.toLocaleString();
+            if (data.total) totalItems.textContent = data.total.toLocaleString();
+            
+            if (data.timestamp) {
+                const time = new Date(data.timestamp).toLocaleTimeString();
+                timestamp.textContent = time;
+            }
+
+            // Update container style based on stage
+            const container = document.querySelector('.progress-container');
+            container.className = 'progress-container';
+            if (data.stage === 'error') container.classList.add('error');
+            if (data.stage === 'complete') container.classList.add('success');
+        }
+
+        function startMonitoring() {
+            if (monitoring) return;
+            
+            monitoring = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            
+            log('Starting progress monitoring...', 'info');
+            
+            // First check current progress
+            fetch(`${API_URL}/build-progress`)
+                .then(response => response.json())
+                .then(data => {
+                    updateProgress(data);
+                    log(`Current progress: ${data.stage} - ${Math.round(data.progress * 100)}%`);
+                })
+                .catch(err => {
+                    log(`Error checking progress: ${err.message}`, 'error');
+                });
+
+            // Start streaming updates
+            eventSource = new EventSource(`${API_URL}/build-progress/stream`);
+            
+            eventSource.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    updateProgress(data);
+                    log(`Update: ${data.stage} - ${Math.round(data.progress * 100)}% - ${data.message}`);
+                    
+                    if (data.stage === 'complete' || data.stage === 'error') {
+                        stopMonitoring();
+                        if (data.stage === 'complete') {
+                            log('Index building completed successfully!', 'success');
+                        } else {
+                            log(`Error: ${data.message}`, 'error');
+                        }
+                    }
+                } catch (err) {
+                    log(`Error parsing update: ${err.message}`, 'error');
+                }
+            };
+
+            eventSource.onerror = function(event) {
+                log('Connection error occurred', 'error');
+                stopMonitoring();
+            };
+        }
+
+        function stopMonitoring() {
+            if (!monitoring) return;
+            
+            monitoring = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+            }
+            
+            log('Stopped monitoring', 'info');
+        }
+
+        function checkHealth() {
+            log('Checking server health...', 'info');
+            fetch(`${API_URL}/health`)
+                .then(response => response.json())
+                .then(data => {
+                    log(`Server status: ${data.status}, Initialized: ${data.search_engine_initialized}`, 'success');
+                    if (data.total_vectors) {
+                        log(`Total vectors: ${data.total_vectors.toLocaleString()}`, 'info');
+                    }
+                })
+                .catch(err => {
+                    log(`Health check failed: ${err.message}`, 'error');
+                });
+        }
+
+        function rebuildIndex() {
+            if (confirm('Are you sure you want to rebuild the index? This will take time.')) {
+                log('Starting index rebuild...', 'info');
+                fetch(`${API_URL}/rebuild-index`)
+                    .then(response => response.json())
+                    .then(data => {
+                        log(`Rebuild started: ${data.message}`, 'success');
+                        // Automatically start monitoring
+                        setTimeout(() => startMonitoring(), 1000);
+                    })
+                    .catch(err => {
+                        log(`Rebuild failed: ${err.message}`, 'error');
+                    });
+            }
+        }
+
+        // Auto-start monitoring on page load
+        window.onload = function() {
+            log('Progress monitor loaded', 'info');
+            checkHealth();
+        };
+
+        // Cleanup on page unload
+        window.onbeforeunload = function() {
+            stopMonitoring();
+        };
+    </script>
+</body>
+</html>
