@@ -1,21 +1,24 @@
-# FastAPI and server
+# Core FastAPI
 fastapi==0.104.1
-uvicorn[standard]==0.24.0
+uvicorn==0.24.0
 
-# Machine Learning & Vector Search
+# Machine Learning - Using older, more stable versions
 sentence-transformers==2.2.2
 faiss-cpu==1.7.4
 numpy==1.24.3
 pandas==2.0.3
 
-# Data processing
-torch==2.1.0
-transformers==4.35.0
+# PyTorch CPU version - more stable
+torch==2.0.1+cpu -f https://download.pytorch.org/whl/torch_stable.html
+torchvision==0.15.2+cpu -f https://download.pytorch.org/whl/torch_stable.html
 
-# Additional dependencies
+# Transformers
+transformers==4.30.2
+tokenizers==0.13.3
+
+# Utilities
+tqdm==4.65.0
+scikit-learn==1.3.0
+
+# FastAPI dependencies
 pydantic==2.4.2
-python-multipart==0.0.6
-
-# For development/testing (optional)
-pytest==7.4.3
-httpx==0.25.1
