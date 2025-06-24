@@ -297,11 +297,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **FastAPI** for the REST API framework
 - **scikit-learn** for TF-IDF implementation
 
-## 📞 Support
-
-- 📧 Email: your.email@example.com
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/hybrid-search-system/issues)
-- 📖 Documentation: [Wiki](https://github.com/yourusername/hybrid-search-system/wiki)
 
 ## 🗺️ Roadmap
 

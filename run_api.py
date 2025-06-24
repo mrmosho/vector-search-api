@@ -6,8 +6,6 @@ import argparse
 import uvicorn
 import logging
 
-from .api_server import APIServer
-
 logger = logging.getLogger(__name__)
 
 
@@ -25,17 +23,26 @@ def main():
     logger.info(f"📊 Data file: {args.csv}")
     logger.info(f"🌐 Server: http://{args.host}:{args.port}")
     
-    # Create API server
-    api_server = APIServer(csv_path=args.csv)
-    app = api_server.get_app()
-    
-    # Run server
-    uvicorn.run(
-        app,
-        host=args.host,
-        port=args.port,
-        reload=args.reload
-    )
+    if args.reload:
+        # For reload mode, use the app factory
+        uvicorn.run(
+            "api_server:app",
+            host=args.host,
+            port=args.port,
+            reload=True
+        )
+    else:
+        # For production mode, create app directly
+        from api_server import APIServer
+        api_server = APIServer(csv_path=args.csv)
+        app = api_server.get_app()
+        
+        uvicorn.run(
+            app,
+            host=args.host,
+            port=args.port,
+            reload=False
+        )
 
 
 if __name__ == "__main__":
