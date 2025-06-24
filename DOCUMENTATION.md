@@ -685,6 +685,7 @@ Based on testing with a 36,197 document dataset:
 **DISCLAIMER**
 Most of the mentioned preformance metrics are expectations and not measured.
 
+---
 
 ## 🗺️ Future Roadmap
 
