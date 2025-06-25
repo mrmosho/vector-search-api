@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class APIRoutes:
     """Class containing all API route handlers"""
     
-    def __init__(self, search_service: SearchService):
+    def __init__(self, search_service: HybridSearcher):
         self.search_service = search_service
     
     async def health_check(self) -> HealthResponse:
