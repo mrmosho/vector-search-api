@@ -1,4 +1,4 @@
-# Hybrid Search System - Complete Documentation
+# Vector Search System - Complete Documentation
 
 A sophisticated search system that combines semantic and keyword search capabilities with Arabic-English language support. The system uses sentence transformers for semantic understanding and TF-IDF for exact keyword matching, with intelligent query analysis to optimize search strategies.
 
