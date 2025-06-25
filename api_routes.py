@@ -7,7 +7,8 @@ from datetime import datetime
 import logging
 
 from api_models import SearchResponse, HealthResponse
-from search_service import SearchService
+from hybrid_searcher import HybridSearcher
+
 
 logger = logging.getLogger(__name__)
 
