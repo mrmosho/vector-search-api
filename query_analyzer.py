@@ -17,17 +17,17 @@ class QueryAnalyzer:
     def get_search_weights(query):
         """Determine weights for semantic vs keyword search based on query"""
         if QueryAnalyzer.is_short_query(query):
-            # For short queries like "COMI", prioritize keyword matching
+            
             return {
-                'semantic_weight': 0.3,
-                'keyword_weight': 0.7,
+                'semantic_weight': 0.9,
+                'keyword_weight': 0.1,
                 'strategy': 'keyword-focused'
             }
         else:
-            # For longer queries, prioritize semantic understanding
+            
             return {
-                'semantic_weight': 0.7,
-                'keyword_weight': 0.3,
+                'semantic_weight': 0.3,
+                'keyword_weight': 0.7,
                 'strategy': 'semantic-focused'
             }
     
