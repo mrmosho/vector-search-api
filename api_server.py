@@ -2,8 +2,11 @@
 API Server Module
 Responsible for: FastAPI application setup and configuration
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime
 import logging
 
 # Import with error handling
@@ -19,6 +22,14 @@ except ImportError as e:
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class SearchRequest(BaseModel):
+    q: str
+    share_search: Optional[str] = None
+    date_from: Optional[datetime] = None
+    date_to: Optional[datetime] = None
+    top_k: Optional[int] = 10
 
 
 class APIServer:
@@ -59,8 +70,36 @@ class APIServer:
         # Health check endpoint
         self.app.get("/health", response_model=HealthResponse)(self.routes.health_check)
         
-        # Search endpoint  
-        self.app.get("/search", response_model=SearchResponse)(self.routes.search)
+        # Search endpoint - POST with request body (standard approach)
+        @self.app.post("/search", response_model=SearchResponse)
+        async def search_endpoint(request: SearchRequest):
+            try:
+                # Extract parameters from request body
+                query = request.q
+                top_k = request.top_k or 10
+                start_date = request.date_from
+                end_date = request.date_to
+                symbol = request.share_search
+                
+                # Call your search service with the parameters
+                results = self.search_service.search(
+                    query=query,
+                    top_k=top_k,
+                    start_date=start_date,
+                    end_date=end_date,
+                    symbol=symbol
+                )
+                
+                return {
+                    "query": query,
+                    "strategy": results.get("strategy", "simple"),
+                    "total_results": len(results.get("results", [])),
+                    "results": results.get("results", []),
+                    "execution_time_ms": 0.0
+                }
+            except Exception as e:
+                logger.error(f"Search error: {e}")
+                raise HTTPException(status_code=500, detail=str(e))
     
     def get_app(self) -> FastAPI:
         """Get the FastAPI application instance"""
@@ -80,7 +119,7 @@ def create_app(csv_path: str = "data.csv") -> FastAPI:
 
 def create_simple_app(csv_path: str = "data.csv") -> FastAPI:
     """Simple fallback app without modular imports"""
-    from fastapi import FastAPI, Query, HTTPException
+    from fastapi import FastAPI, HTTPException
     from datetime import datetime
     
     app = FastAPI(title="Simple Search API", version="1.0.0")
@@ -101,15 +140,27 @@ def create_simple_app(csv_path: str = "data.csv") -> FastAPI:
             "documents_loaded": 0
         }
     
-    @app.get("/search")
-    async def search(q: str = Query(...), top_k: int = Query(default=10)):
-        return {
-            "query": q,
-            "strategy": "simple",
-            "total_results": 0,
-            "results": [],
-            "execution_time_ms": 0.0
-        }
+    @app.post("/search")
+    async def search(request: SearchRequest):
+        try:
+            # Extract parameters from request body
+            query = request.q
+            top_k = request.top_k or 10
+            start_date = request.date_from
+            end_date = request.date_to
+            symbol = request.share_search
+            
+            # This is the simple fallback - you can add actual search logic here
+            return {
+                "query": query,
+                "strategy": "simple",
+                "total_results": 0,
+                "results": [],
+                "execution_time_ms": 0.0
+            }
+        except Exception as e:
+            logger.error(f"Search error: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
     
     return app
 
