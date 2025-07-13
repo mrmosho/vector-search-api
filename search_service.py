@@ -110,21 +110,71 @@ class SearchService:
             raise Exception(f"Search service not initialized: {self.initialization_error}")
 
         df_filtered = self.df.copy()
+        
+        # Debug: Log original data info
+        logger.info(f"Original data shape: {df_filtered.shape}")
+        logger.info(f"Sample MOD_DATE values: {df_filtered['MOD_DATE'].head()}")
+        logger.info(f"Sample SYMBOLS values: {df_filtered['SYMBOLS'].head()}")
+        
+        # Debug: Check how many KABO records exist
+        if symbol:
+            kabo_count = len(df_filtered[df_filtered['SYMBOLS'] == symbol])
+            logger.info(f"Total records with SYMBOLS='{symbol}': {kabo_count}")
 
-     # 🛠 Ensure MOD_DATE is datetime for safe comparison
-        df_filtered["MOD_DATE"] = pd.to_datetime(df_filtered["MOD_DATE"], errors="coerce")
+        # 🛠 Ensure MOD_DATE is datetime for safe comparison
+        # The date format is "4/17/2025 1:45:37.000000 PM" - handle this properly
+        try:
+            # Try the actual format from your data
+            df_filtered["MOD_DATE"] = pd.to_datetime(df_filtered["MOD_DATE"], format="%m/%d/%Y %I:%M:%S.%f %p", errors="coerce")
+        except:
+            try:
+                # Try without microseconds
+                df_filtered["MOD_DATE"] = pd.to_datetime(df_filtered["MOD_DATE"], format="%m/%d/%Y %I:%M:%S %p", errors="coerce")
+            except:
+                try:
+                    # Try standard formats
+                    df_filtered["MOD_DATE"] = pd.to_datetime(df_filtered["MOD_DATE"], format="%Y-%m-%d", errors="coerce")
+                except:
+                    # Last resort - let pandas figure it out
+                    df_filtered["MOD_DATE"] = pd.to_datetime(df_filtered["MOD_DATE"], errors="coerce")
+        
+        # Debug: Log after datetime conversion
+        logger.info(f"After datetime conversion: {df_filtered['MOD_DATE'].head()}")
+        logger.info(f"Date range in data: {df_filtered['MOD_DATE'].min()} to {df_filtered['MOD_DATE'].max()}")
+        
+        # Apply symbol filter first (before date filtering)
+        if symbol:
+            logger.info(f"Filtering by symbol: {symbol}")
+            df_filtered = df_filtered[df_filtered['SYMBOLS'] == symbol]
+            logger.info(f"After symbol filter: {df_filtered.shape}")
 
+        # Remove rows with invalid dates for date filtering
+        if start_date or end_date:
+            df_filtered = df_filtered[df_filtered["MOD_DATE"].notna()]
+            logger.info(f"After removing invalid dates: {df_filtered.shape}")
+
+        # Fix date comparisons by ensuring both sides are pandas datetime objects
         if start_date:
-            df_filtered = df_filtered[df_filtered["MOD_DATE"] >= pd.to_datetime(start_date)]
+            start_date_pd = pd.to_datetime(start_date).date()
+            df_filtered["MOD_DATE_DATE"] = df_filtered["MOD_DATE"].dt.date
+            logger.info(f"Filtering by start_date: {start_date_pd}")
+            df_filtered = df_filtered[df_filtered["MOD_DATE_DATE"] >= start_date_pd]
+            logger.info(f"After start_date filter: {df_filtered.shape}")
 
         if end_date:
-            df_filtered = df_filtered[df_filtered["MOD_DATE"] <= pd.to_datetime(end_date)]
-
-        if symbol:
-            df_filtered = df_filtered[df_filtered['SYMBOLS'] == symbol]
+            end_date_pd = pd.to_datetime(end_date).date()
+            if "MOD_DATE_DATE" not in df_filtered.columns:
+                df_filtered["MOD_DATE_DATE"] = df_filtered["MOD_DATE"].dt.date
+            logger.info(f"Filtering by end_date: {end_date_pd}")
+            df_filtered = df_filtered[df_filtered["MOD_DATE_DATE"] <= end_date_pd]
+            logger.info(f"After end_date filter: {df_filtered.shape}")
 
         if df_filtered.empty:
+           logger.warning("No results after filtering")
            return {"results": [], "strategy": "No results (filtered)"}
+
+        # Log final filtered data
+        logger.info(f"Final filtered data shape: {df_filtered.shape}")
 
         self.hybrid_searcher.result_formatter.df = df_filtered
         query_analysis = self.hybrid_searcher.query_analyzer.analyze_query(query)
@@ -139,12 +189,14 @@ class SearchService:
         strategy = f"{semantic_weight:.0%} semantic + {keyword_weight:.0%} keyword ({query_analysis['strategy']})" if semantic_weight > 0 else "Keyword matching only"
 
         sorted_results = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)
+        
+        # Debug: Log search results
+        logger.info(f"Search found {len(sorted_results)} potential results")
 
         results = []
-        seen_titles = set()
+        seen_combinations = set()  # Track title + date combinations instead of just titles
         displayed = 0
     
-
         valid_indices = set(df_filtered.index)
 
         for idx, combined_score in sorted_results:
@@ -157,11 +209,31 @@ class SearchService:
             row = df_filtered.loc[idx]
             title = row["TITLE"].strip()
 
-            if title in seen_titles:
-                continue
-            seen_titles.add(title)
-
+            # Format date for comparison
             date = row.get("MOD_DATE", "N/A")
+            if pd.isna(date):
+                date_str = "N/A"
+            elif isinstance(date, pd.Timestamp):
+                date_str = date.strftime("%Y-%m-%d")
+            else:
+                date_str = str(date)
+
+            # Create unique combination of title + date
+            combination = f"{title}|{date_str}"
+            
+            # Skip if we've seen this exact title + date combination
+            if combination in seen_combinations:
+                logger.info(f"Skipping duplicate combination: {title} on {date_str}")
+                continue
+            
+            seen_combinations.add(combination)
+
+            # Format date properly for frontend (reuse the date_str from above)
+            date = date_str
+                
+            # Debug: Log the date being returned
+            logger.info(f"Result {displayed + 1}: Date = {date}, Original = {row.get('MOD_DATE', 'N/A')}")
+            
             source = row.get("SOURCE_NAME", "N/A")
             description = BeautifulSoup(row.get("DESCRIPTION", ""), "html.parser").get_text(separator=" ")
             short_summary = description.strip().replace("\n", " ")[:300]
@@ -178,6 +250,8 @@ class SearchService:
            )
             results.append(result)
             displayed += 1
+
+        logger.info(f"Returning {len(results)} results")
 
         return {
            "results": results,
